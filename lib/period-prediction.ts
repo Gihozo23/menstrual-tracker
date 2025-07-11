@@ -17,11 +17,30 @@ export class PeriodPredictionEngine {
 
   /**
    * Predict remaining period days based on currently logged days
+   * Only shows predictions if current date is included in the logged days
    * @param currentPeriodDays - Array of dates already logged for current period
    * @returns PeriodPrediction object with possible and predicted days
    */
   public predictRemainingDays(currentPeriodDays: Date[]): PeriodPrediction {
     if (currentPeriodDays.length === 0) {
+      return {
+        possibleDays: [],
+        predictedDays: [],
+        isComplete: false,
+        confidence: { possible: 0, predicted: 0 },
+      }
+    }
+
+    // Check if current date is included in logged days
+    const today = new Date()
+    const includesCurrentDate = currentPeriodDays.some(date => 
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate()
+    )
+
+    // If current date is not included, don't show predictions
+    if (!includesCurrentDate) {
       return {
         possibleDays: [],
         predictedDays: [],

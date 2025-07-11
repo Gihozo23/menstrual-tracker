@@ -405,10 +405,10 @@ export default function MenstrualTracker() {
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 bg-yellow-400 border-2 border-dashed border-orange-600 rounded"></div>
-                  <span>Future Predicted Period</span>
+                  <span>Predicted Period</span>
                 </div>
                 {/* Add new legend items for current period predictions */}
-                {isLogging && (possiblePeriodDays.length > 0 || predictedPeriodDays.length > 0) && (
+                {(possiblePeriodDays.length > 0 || predictedPeriodDays.length > 0) && (
                   <>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 bg-orange-500 border-2 border-orange-700 rounded"></div>
