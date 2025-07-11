@@ -11,6 +11,13 @@ import { CalendarDays, TrendingUp, Clock } from "lucide-react"
 import { useCyclePredictions } from "@/lib/cycle-predictions"
 import { PredictionsPanel } from "@/components/predictions-panel"
 
+// Add these imports at the top
+import { calculateOvulationForDate, getCurrentPhase } from "@/lib/cycle-predictions"
+// Add this import at the top with the other imports
+import { FertilityInsights } from "@/components/fertility-insights"
+// Add this new import
+import { periodPredictionEngine } from "@/lib/period-prediction"
+
 interface PeriodLog {
   startDate: Date
   endDate: Date
@@ -25,6 +32,9 @@ export default function MenstrualTracker() {
 
   // Add this after the existing useState declarations
   const { predictions, insights, isIrregular, error } = useCyclePredictions(periodHistory)
+
+  // Add this new state variable after the existing useState declarations (around line 25):
+  const [editMode, setEditMode] = useState(false)
 
   // Load data from localStorage on component mount
   useEffect(() => {
@@ -63,7 +73,46 @@ export default function MenstrualTracker() {
     return isFuture(startOfDay(date))
   }
 
-  // Handle date selection
+  // Add this function after the existing helper functions (around line 50)
+  const getFertilityDates = () => {
+    if (periodHistory.length === 0) return { ovulationDates: [], fertileWindowDates: [], predictedPeriodDates: [] }
+
+    const ovulationDates: Date[] = []
+    const fertileWindowDates: Date[] = []
+    const predictedPeriodDates: Date[] = []
+
+    // Get current fertility data
+    const today = new Date()
+    const fertilityData = calculateOvulationForDate(today, periodHistory)
+
+    if (fertilityData) {
+      ovulationDates.push(fertilityData.ovulationDate)
+      fertileWindowDates.push(...fertilityData.fertileWindow)
+    }
+
+    // Add predicted period dates if we have predictions
+    if (predictions?.nextPeriod) {
+      predictedPeriodDates.push(...predictions.nextPeriod.predictedDays)
+    }
+
+    return { ovulationDates, fertileWindowDates, predictedPeriodDates }
+  }
+
+  // Add this new function after getFertilityDates
+  const getCurrentPeriodPredictions = () => {
+    if (!isLogging || selectedDates.length === 0) {
+      return { possiblePeriodDays: [], predictedPeriodDays: [] }
+    }
+
+    const prediction = periodPredictionEngine.predictRemainingDays(selectedDates)
+    return {
+      possiblePeriodDays: prediction.possibleDays,
+      predictedPeriodDays: prediction.predictedDays,
+    }
+  }
+
+  // Replace the handleDateSelect function with this enhanced version that supports deletion:
+  // Handle date selection and deletion
   const handleDateSelect = (date: Date | undefined) => {
     if (!date || isDateDisabled(date)) return
 
@@ -77,6 +126,12 @@ export default function MenstrualTracker() {
           return [...prev, date].sort((a, b) => a.getTime() - b.getTime())
         }
       })
+    } else if (editMode) {
+      // Delete mode - remove period days
+      const isLoggedDate = loggedDates.some((d) => isSameDay(d, date))
+      if (isLoggedDate) {
+        deletePeriodDay(date)
+      }
     }
   }
 
@@ -149,6 +204,59 @@ export default function MenstrualTracker() {
     setIsLogging(false)
   }
 
+  // Add these new functions after the cancelLogging function:
+  // Delete a specific period day
+  const deletePeriodDay = (dateToDelete: Date) => {
+    setPeriodHistory((prev) => {
+      return prev
+        .map((log) => {
+          // Check if this date belongs to this period
+          const hasDate = log.days.some((d) => isSameDay(d, dateToDelete))
+
+          if (hasDate) {
+            const updatedDays = log.days.filter((d) => !isSameDay(d, dateToDelete))
+
+            // If no days left, we'll filter out this entire period later
+            if (updatedDays.length === 0) {
+              return null
+            }
+
+            // Update start and end dates
+            const sortedDays = updatedDays.sort((a, b) => a.getTime() - b.getTime())
+            return {
+              ...log,
+              days: sortedDays,
+              startDate: sortedDays[0],
+              endDate: sortedDays[sortedDays.length - 1],
+            }
+          }
+
+          return log
+        })
+        .filter(Boolean) as PeriodLog[] // Remove null entries (empty periods)
+    })
+  }
+
+  // Delete an entire period
+  const deletePeriod = (periodToDelete: PeriodLog) => {
+    if (
+      confirm(
+        `Are you sure you want to delete the period from ${format(periodToDelete.startDate, "MMM d")} to ${format(periodToDelete.endDate, "MMM d, yyyy")}?`,
+      )
+    ) {
+      setPeriodHistory((prev) => prev.filter((log) => log.startDate.getTime() !== periodToDelete.startDate.getTime()))
+    }
+  }
+
+  // Toggle edit mode
+  const toggleEditMode = () => {
+    setEditMode(!editMode)
+    // Exit logging mode if entering edit mode
+    if (!editMode && isLogging) {
+      cancelLogging()
+    }
+  }
+
   // Calculate statistics
   const calculateStats = () => {
     if (periodHistory.length === 0) return null
@@ -184,6 +292,11 @@ export default function MenstrualTracker() {
   const stats = calculateStats()
   const loggedDates = getLoggedDates()
 
+  // Update the Calendar component section (around line 180) to include the new modifiers
+  const { ovulationDates, fertileWindowDates, predictedPeriodDates } = getFertilityDates()
+  const { possiblePeriodDays, predictedPeriodDays } = getCurrentPeriodPredictions()
+  const currentPhase = getCurrentPhase(new Date(), periodHistory)
+
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="mb-6">
@@ -199,13 +312,17 @@ export default function MenstrualTracker() {
               <CalendarDays className="h-5 w-5" />
               Period Calendar
             </CardTitle>
+            {/* Update the CardDescription to include edit mode information: */}
             <CardDescription>
               {isLogging
                 ? "Select your period dates. Click dates to add/remove them."
-                : "View your logged periods and start tracking new ones."}
+                : editMode
+                  ? "Edit mode: Click on period dates to delete them."
+                  : "View your logged periods and start tracking new ones."}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Replace the existing Calendar component with this updated version */}
             <Calendar
               mode="single"
               selected={undefined}
@@ -214,21 +331,107 @@ export default function MenstrualTracker() {
               modifiers={{
                 logged: loggedDates,
                 selected: selectedDates,
+                ovulation: ovulationDates,
+                fertile: fertileWindowDates,
+                predicted: predictedPeriodDates,
+                possiblePeriod: possiblePeriodDays,
+                predictedPeriod: predictedPeriodDays,
               }}
               modifiersStyles={{
                 logged: {
-                  backgroundColor: "#fecaca",
-                  color: "#dc2626",
+                  backgroundColor: editMode ? "#fca5a5" : "#dc2626",
+                  color: editMode ? "#7f1d1d" : "white",
                   fontWeight: "bold",
+                  cursor: editMode ? "pointer" : "default",
+                  border: editMode ? "2px solid #dc2626" : "none",
                 },
                 selected: {
-                  backgroundColor: "#dc2626",
+                  backgroundColor: "#991b1b",
                   color: "white",
                   fontWeight: "bold",
+                  border: "2px solid #7f1d1d",
+                },
+                ovulation: {
+                  backgroundColor: "#7c3aed",
+                  color: "white",
+                  fontWeight: "bold",
+                  borderRadius: "50%",
+                },
+                fertile: {
+                  backgroundColor: "#c4b5fd",
+                  color: "#5b21b6",
+                  fontWeight: "bold",
+                },
+                predicted: {
+                  backgroundColor: "#fbbf24",
+                  color: "#92400e",
+                  fontWeight: "bold",
+                  border: "2px dashed #d97706",
+                },
+                possiblePeriod: {
+                  backgroundColor: "#fb923c",
+                  color: "white",
+                  fontWeight: "bold",
+                  border: "2px solid #ea580c",
+                },
+                predictedPeriod: {
+                  backgroundColor: "#f9a8d4",
+                  color: "#be185d",
+                  fontWeight: "bold",
+                  border: "2px dashed #ec4899",
                 },
               }}
               className="rounded-md border"
             />
+
+            {/* Add the calendar legend right after the Calendar component */}
+            <div className="mt-4 p-4 bg-muted rounded-lg">
+              <h4 className="font-medium mb-3">Calendar Legend</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-2">
+                  {/* Update the calendar legend to show edit mode: */}
+                  <div
+                    className={`w-4 h-4 rounded ${editMode ? "bg-red-300 border-2 border-red-600" : "bg-red-600"}`}
+                  ></div>
+                  <span>Period Days {editMode && "(Click to delete)"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-purple-600 rounded-full"></div>
+                  <span>Ovulation</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-purple-300 rounded"></div>
+                  <span>Fertile Window</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 bg-yellow-400 border-2 border-dashed border-orange-600 rounded"></div>
+                  <span>Future Predicted Period</span>
+                </div>
+                {/* Add new legend items for current period predictions */}
+                {isLogging && (possiblePeriodDays.length > 0 || predictedPeriodDays.length > 0) && (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-orange-500 border-2 border-orange-700 rounded"></div>
+                      <span>Possible Period (85%)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-pink-300 border-2 border-dashed border-pink-500 rounded"></div>
+                      <span>Predicted Period (75%)</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              {periodHistory.length > 0 && (
+                <div className="mt-3 pt-3 border-t">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">Current Phase:</span>
+                    <Badge variant="outline" className="font-medium">
+                      {currentPhase}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {selectedDates.length > 0 && (
               <div className="mt-4 p-3 bg-muted rounded-lg">
@@ -243,19 +446,42 @@ export default function MenstrualTracker() {
                 {selectedDates.length > 10 && (
                   <p className="text-sm text-destructive mt-2">Warning: Period cannot exceed 10 days</p>
                 )}
+                {/* Add period prediction summary */}
+                {isLogging && selectedDates.length > 0 && (
+                  <div className="mt-3 pt-3 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      {periodPredictionEngine.getPredictionSummary(selectedDates)}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
+            {/* Update the button section to include edit mode toggle: */}
             <div className="flex gap-2 mt-4">
               {!isLogging ? (
                 <>
-                  <Button onClick={startNewPeriod} className="flex-1">
+                  <Button onClick={startNewPeriod} className="flex-1" disabled={editMode}>
                     Start New Period
                   </Button>
                   {periodHistory.length > 0 && (
-                    <Button onClick={continueCurrentPeriod} variant="outline" className="flex-1 bg-transparent">
-                      Continue Last Period
-                    </Button>
+                    <>
+                      <Button
+                        onClick={continueCurrentPeriod}
+                        variant="outline"
+                        className="flex-1 bg-transparent"
+                        disabled={editMode}
+                      >
+                        Continue Last Period
+                      </Button>
+                      <Button
+                        onClick={toggleEditMode}
+                        variant={editMode ? "destructive" : "outline"}
+                        className="flex-1 bg-transparent"
+                      >
+                        {editMode ? "Exit Edit" : "Edit Periods"}
+                      </Button>
+                    </>
                   )}
                 </>
               ) : (
@@ -338,7 +564,7 @@ export default function MenstrualTracker() {
                     .reverse()
                     .map((log, index) => (
                       <div key={index} className="flex justify-between items-center p-3 bg-muted rounded-lg">
-                        <div>
+                        <div className="flex-1">
                           <div className="font-medium">
                             {format(log.startDate, "MMM d")} - {format(log.endDate, "MMM d, yyyy")}
                           </div>
@@ -346,9 +572,19 @@ export default function MenstrualTracker() {
                             {differenceInDays(log.endDate, log.startDate) + 1} days
                           </div>
                         </div>
-                        <Badge variant="outline">
-                          {log.days.length} day{log.days.length !== 1 ? "s" : ""}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">
+                            {log.days.length} day{log.days.length !== 1 ? "s" : ""}
+                          </Badge>
+                          <Button
+                            onClick={() => deletePeriod(log)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 p-1 h-8 w-8"
+                          >
+                            ×
+                          </Button>
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -370,6 +606,16 @@ export default function MenstrualTracker() {
             <p className="text-muted-foreground">Smart forecasting based on your cycle patterns and history</p>
           </div>
           <PredictionsPanel predictions={predictions} insights={insights} isIrregular={isIrregular} error={error} />
+        </div>
+      )}
+      {/* Fertility Insights Section */}
+      {periodHistory.length > 0 && (
+        <div className="mt-8">
+          <div className="mb-6">
+            <h2 className="text-2xl font-bold mb-2">Fertility & Ovulation Tracking</h2>
+            <p className="text-muted-foreground">Track your fertile window and understand your cycle phases</p>
+          </div>
+          <FertilityInsights periodHistory={periodHistory} />
         </div>
       )}
     </div>

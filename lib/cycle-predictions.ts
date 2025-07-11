@@ -283,6 +283,82 @@ export class CyclePredictionEngine {
   }
 }
 
+// Add this new utility function after the existing CyclePredictionEngine class
+
+export interface FertilityData {
+  ovulationDate: Date
+  fertileWindow: Date[]
+  phase: "menstrual" | "follicular" | "ovulation" | "luteal"
+  confidence: number
+}
+
+export function calculateOvulationForDate(
+  date: Date,
+  periodHistory: PeriodLog[],
+  avgCycleLength = 28,
+  lutealPhaseLength = 14,
+): FertilityData | null {
+  if (periodHistory.length === 0) return null
+
+  // Find the most recent period before or on the given date
+  const relevantPeriods = periodHistory
+    .filter((period) => period.startDate <= date)
+    .sort((a, b) => b.startDate.getTime() - a.startDate.getTime())
+
+  if (relevantPeriods.length === 0) return null
+
+  const lastPeriod = relevantPeriods[0]
+  const nextPeriodStart = addDays(lastPeriod.startDate, avgCycleLength)
+  const ovulationDate = subDays(nextPeriodStart, lutealPhaseLength)
+
+  // Create fertile window (5 days before ovulation + ovulation day + 1 day after)
+  const fertileWindow: Date[] = []
+  for (let i = -5; i <= 1; i++) {
+    fertileWindow.push(addDays(ovulationDate, i))
+  }
+
+  // Determine current phase based on the given date
+  const daysSinceLastPeriod = differenceInDays(date, lastPeriod.startDate)
+  const daysSinceOvulation = differenceInDays(date, ovulationDate)
+
+  let phase: FertilityData["phase"]
+  if (daysSinceLastPeriod >= 0 && daysSinceLastPeriod < lastPeriod.days.length) {
+    phase = "menstrual"
+  } else if (daysSinceLastPeriod < differenceInDays(ovulationDate, lastPeriod.startDate)) {
+    phase = "follicular"
+  } else if (Math.abs(daysSinceOvulation) <= 1) {
+    phase = "ovulation"
+  } else {
+    phase = "luteal"
+  }
+
+  // Calculate confidence based on cycle regularity
+  const engine = new CyclePredictionEngine(periodHistory)
+  const analysis = engine.analyzeCycles()
+  const confidence = Math.round((analysis.regularityScore / 100) * 80 + 20) // 20-100% range
+
+  return {
+    ovulationDate,
+    fertileWindow,
+    phase,
+    confidence,
+  }
+}
+
+export function getCurrentPhase(date: Date, periodHistory: PeriodLog[]): string {
+  const fertilityData = calculateOvulationForDate(date, periodHistory)
+  if (!fertilityData) return "Unknown"
+
+  const phaseNames = {
+    menstrual: "Menstrual",
+    follicular: "Follicular",
+    ovulation: "Ovulation",
+    luteal: "Luteal",
+  }
+
+  return phaseNames[fertilityData.phase]
+}
+
 // Hook for using cycle predictions in React components
 export function useCyclePredictions(periodHistory: PeriodLog[]) {
   try {
