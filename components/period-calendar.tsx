@@ -1,11 +1,10 @@
-"use client"
-
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarDays } from "lucide-react"
-import { format, isFuture, startOfDay, isSameDay } from "date-fns"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CalendarDays, Info, Heart, Baby } from "lucide-react"
+import { format, isFuture, startOfDay, isSameDay, addMonths } from "date-fns"
 import type { PeriodLog, PeriodPredictions } from "@/hooks/use-period-data"
 
 interface PeriodCalendarProps {
@@ -36,6 +35,7 @@ export function PeriodCalendar({
   onCancelLogging,
 }: PeriodCalendarProps) {
   const today = startOfDay(new Date())
+  const nextMonth = addMonths(today, 1)
 
   // Get all logged period dates
   const loggedDates = periodHistory.flatMap(log => log.days)
@@ -47,6 +47,68 @@ export function PeriodCalendar({
   const isDateDisabled = (date: Date) => {
     return isFuture(startOfDay(date))
   }
+
+  // Common modifiers for both calendars
+  const getModifiers = () => ({
+    logged: loggedDates,
+    selected: selectedDates,
+    today: [today],
+    ovulation: predictions.ovulationDates,
+    fertile: predictions.fertileWindows,
+    futurePeriod: futurePeriodDates,
+    possiblePeriod: predictions.possibleDays,
+    predictedPeriod: predictions.predictedDays,
+  })
+
+  // Common modifier styles for both calendars
+  const getModifierStyles = () => ({
+    logged: {
+      backgroundColor: editMode ? "#fca5a5" : "#dc2626",
+      color: editMode ? "#7f1d1d" : "white",
+      fontWeight: "bold",
+      cursor: editMode ? "pointer" : "default",
+      border: editMode ? "2px solid #dc2626" : "none",
+    },
+    selected: {
+      backgroundColor: "#991b1b",
+      color: "white",
+      fontWeight: "bold",
+      border: "2px solid #7f1d1d",
+    },
+    today: {
+      border: "2px solid #3b82f6",
+      borderRadius: "50%",
+    },
+    ovulation: {
+      backgroundColor: "#7c3aed",
+      color: "white",
+      fontWeight: "bold",
+      borderRadius: "50%",
+    },
+    fertile: {
+      backgroundColor: "#c4b5fd",
+      color: "#5b21b6",
+      fontWeight: "bold",
+    },
+    futurePeriod: {
+      backgroundColor: "#f9a8d4",
+      color: "#be185d",
+      fontWeight: "bold",
+      border: "1px solid #ec4899",
+    },
+    possiblePeriod: {
+      backgroundColor: "#fb923c",
+      color: "white",
+      fontWeight: "bold",
+      border: "2px solid #ea580c",
+    },
+    predictedPeriod: {
+      backgroundColor: "#f9a8d4",
+      color: "#be185d",
+      fontWeight: "bold",
+      border: "2px dashed #ec4899",
+    },
+  })
 
   return (
     <Card>
@@ -64,110 +126,96 @@ export function PeriodCalendar({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Calendar
-          mode="single"
-          selected={undefined}
-          onSelect={onDateSelect}
-          disabled={isDateDisabled}
-          modifiers={{
-            logged: loggedDates,
-            selected: selectedDates,
-            today: [today],
-            ovulation: predictions.ovulationDates,
-            fertile: predictions.fertileWindows,
-            futurePeriod: futurePeriodDates,
-            possiblePeriod: predictions.possibleDays,
-            predictedPeriod: predictions.predictedDays,
-          }}
-          modifiersStyles={{
-            logged: {
-              backgroundColor: editMode ? "#fca5a5" : "#dc2626",
-              color: editMode ? "#7f1d1d" : "white",
-              fontWeight: "bold",
-              cursor: editMode ? "pointer" : "default",
-              border: editMode ? "2px solid #dc2626" : "none",
-            },
-            selected: {
-              backgroundColor: "#991b1b",
-              color: "white",
-              fontWeight: "bold",
-              border: "2px solid #7f1d1d",
-            },
-            today: {
-              border: "2px solid #3b82f6",
-              borderRadius: "50%",
-            },
-            ovulation: {
-              backgroundColor: "#7c3aed",
-              color: "white",
-              fontWeight: "bold",
-              borderRadius: "50%",
-            },
-            fertile: {
-              backgroundColor: "#c4b5fd",
-              color: "#5b21b6",
-              fontWeight: "bold",
-            },
-            futurePeriod: {
-              backgroundColor: "#f9a8d4",
-              color: "#be185d",
-              fontWeight: "bold",
-              border: "1px solid #ec4899",
-            },
-            possiblePeriod: {
-              backgroundColor: "#fb923c",
-              color: "white",
-              fontWeight: "bold",
-              border: "2px solid #ea580c",
-            },
-            predictedPeriod: {
-              backgroundColor: "#f9a8d4",
-              color: "#be185d",
-              fontWeight: "bold",
-              border: "2px dashed #ec4899",
-            },
-          }}
-          className="rounded-md border"
-        />
+        {/* Dual Calendar Display */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* Current Month */}
+          <div>
+            <h3 className="text-sm font-medium mb-2 text-center">{format(today, "MMMM yyyy")}</h3>
+            <Calendar
+              mode="single"
+              selected={undefined}
+              onSelect={onDateSelect}
+              disabled={isDateDisabled}
+              modifiers={getModifiers()}
+              modifiersStyles={getModifierStyles()}
+              className="rounded-md border"
+              month={today}
+            />
+          </div>
+
+          {/* Next Month */}
+          <div>
+            <h3 className="text-sm font-medium mb-2 text-center">{format(nextMonth, "MMMM yyyy")}</h3>
+            <Calendar
+              mode="single"
+              selected={undefined}
+              onSelect={onDateSelect}
+              disabled={isDateDisabled}
+              modifiers={getModifiers()}
+              modifiersStyles={getModifierStyles()}
+              className="rounded-md border"
+              month={nextMonth}
+            />
+          </div>
+        </div>
 
         {/* Calendar Legend */}
-        <div className="mt-4 p-4 bg-muted rounded-lg">
+        <div className="mb-4 p-4 bg-muted rounded-lg">
           <h4 className="font-medium mb-3">Calendar Legend</h4>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center gap-2">
               <div className={`w-4 h-4 rounded ${editMode ? "bg-red-300 border-2 border-red-600" : "bg-red-600"}`}></div>
-              <span>🔴 Logged Period Days {editMode && "(Click to delete)"}</span>
+              <span>Logged Period Days {editMode && "(Click to delete)"}</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-orange-500 border-2 border-orange-700 rounded"></div>
-              <span>🟠 Possible Period (85%)</span>
+              <span>Possible Period (85%)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-pink-300 border-2 border-dashed border-pink-500 rounded"></div>
-              <span>🌸 Predicted Period (75%)</span>
+              <span>Predicted Period (75%)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-pink-300 border border-pink-500 rounded"></div>
-              <span>🌸 Future Periods</span>
+              <span>Future Periods</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-purple-600 rounded-full"></div>
-              <span>🟣 Ovulation</span>
+              <span>Ovulation</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 bg-purple-300 rounded"></div>
-              <span>💜 Fertile Window</span>
+              <span>Fertile Window</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-blue-500 rounded-full"></div>
-              <span>🔵 Today</span>
+              <span>Today</span>
             </div>
           </div>
         </div>
 
+        {/* Period Tips */}
+        <div className="mb-4 space-y-3">
+          <Alert>
+            <Heart className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Period Tips:</strong> Track consistently for better predictions. Normal periods last 3-7 days. 
+              Heavy flow is common on days 1-3, then gradually decreases.
+            </AlertDescription>
+          </Alert>
+          
+          <Alert>
+            <Baby className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Fertility Tips:</strong> You're most fertile 5 days before ovulation through 1 day after. 
+              Ovulation typically occurs 14 days before your next period starts.
+            </AlertDescription>
+          </Alert>
+        </div>
+
         {/* Selected Dates Display */}
         {selectedDates.length > 0 && (
-          <div className="mt-4 p-3 bg-muted rounded-lg">
+          <div className="mb-4 p-3 bg-muted rounded-lg">
             <p className="text-sm font-medium mb-2">Selected dates:</p>
             <div className="flex flex-wrap gap-1">
               {selectedDates.map((date) => (
@@ -191,8 +239,26 @@ export function PeriodCalendar({
           </div>
         )}
 
+        {/* Prediction Info */}
+        {(predictions.possibleDays.length > 0 || predictions.predictedDays.length > 0) && (
+          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Info className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-800">Current Period Predictions</span>
+            </div>
+            <div className="text-sm text-blue-700">
+              {predictions.possibleDays.length > 0 && (
+                <p>• {predictions.possibleDays.length} possible day(s) remaining (85% confidence)</p>
+              )}
+              {predictions.predictedDays.length > 0 && (
+                <p>• {predictions.predictedDays.length} predicted day(s) remaining (75% confidence)</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
-        <div className="flex gap-2 mt-4">
+        <div className="flex gap-2">
           {!isLogging ? (
             <>
               <Button onClick={onStartNewPeriod} className="flex-1" disabled={editMode}>
