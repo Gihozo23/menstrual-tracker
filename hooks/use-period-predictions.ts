@@ -21,24 +21,48 @@ export function usePeriodPredictions(
     const fertileWindows: Date[] = []
 
     // 1. Calculate current period predictions (possible and predicted days)
-    if (isLogging && selectedDates.length > 0) {
-      // Only show predictions if today is included in selected dates
-      const includesCurrentDate = selectedDates.some(date => isSameDay(date, today))
+    // Check if we have an ongoing period that includes today
+    const hasOngoingPeriod = () => {
+      if (isLogging && selectedDates.length > 0) {
+        return selectedDates.some(date => isSameDay(date, today))
+      }
       
-      if (includesCurrentDate && selectedDates.length < 5) {
+      // Check if today is part of any logged period
+      return periodHistory.some(period => 
+        period.days.some(day => isSameDay(day, today))
+      )
+    }
+    
+    if (hasOngoingPeriod()) {
+      // Get current period data (either from logging or from history)
+      let currentPeriodDays: Date[] = []
+      
+      if (isLogging && selectedDates.length > 0) {
+        currentPeriodDays = selectedDates
+      } else {
+        // Find the period that includes today
+        const todaysPeriod = periodHistory.find(period => 
+          period.days.some(day => isSameDay(day, today))
+        )
+        if (todaysPeriod) {
+          currentPeriodDays = todaysPeriod.days
+        }
+      }
+      
+      if (currentPeriodDays.length > 0 && currentPeriodDays.length < 5) {
         const targetPeriodLength = cycleStats.averagePeriodLength
-        const daysLogged = selectedDates.length
+        const daysLogged = currentPeriodDays.length
         const remainingDays = Math.max(0, targetPeriodLength - daysLogged)
         
         if (remainingDays > 0) {
-          const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime())
+          const sortedDates = [...currentPeriodDays].sort((a, b) => a.getTime() - b.getTime())
           const lastDay = sortedDates[sortedDates.length - 1]
           
           // First up to 3 days are "possible" (85% confidence)
           const possibleCount = Math.min(3, remainingDays)
           for (let i = 1; i <= possibleCount; i++) {
             const nextDay = addDays(lastDay, i)
-            if (!selectedDates.some(date => isSameDay(date, nextDay))) {
+            if (!currentPeriodDays.some(date => isSameDay(date, nextDay))) {
               possibleDays.push(nextDay)
             }
           }
@@ -48,7 +72,7 @@ export function usePeriodPredictions(
             const predictedCount = remainingDays - possibleCount
             for (let i = possibleCount + 1; i <= possibleCount + predictedCount; i++) {
               const nextDay = addDays(lastDay, i)
-              if (!selectedDates.some(date => isSameDay(date, nextDay))) {
+              if (!currentPeriodDays.some(date => isSameDay(date, nextDay))) {
                 predictedDays.push(nextDay)
               }
             }
