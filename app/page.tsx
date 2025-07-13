@@ -31,12 +31,14 @@ export default function MenstrualTracker() {
     if (!date) return
 
     if (isLogging) {
-      // Add to current logging session
+      // Add to current logging session or remove if already selected
       setSelectedDates((prev) => {
         const exists = prev.some((d) => isSameDay(d, date))
         if (exists) {
+          // Remove the date (unselect)
           return prev.filter((d) => !isSameDay(d, date))
         } else {
+          // Add the date (select)
           return [...prev, date].sort((a, b) => a.getTime() - b.getTime())
         }
       })
