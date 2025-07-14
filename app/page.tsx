@@ -157,34 +157,38 @@ export default function MenstrualTracker() {
   }
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
+    <div className="container mx-auto p-4 max-w-7xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold mb-2">Menstrual Tracker</h1>
         <p className="text-muted-foreground">Track your period and monitor your cycle</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:gap-8">
         {/* Calendar Section */}
-        <PeriodCalendar
-          periodHistory={periodHistory}
-          selectedDates={selectedDates}
-          isLogging={isLogging}
-          editMode={editMode}
-          predictions={predictions}
-          onDateSelect={handleDateSelect}
-          onStartNewPeriod={startNewPeriod}
-          onContinueCurrentPeriod={continueCurrentPeriod}
-          onToggleEditMode={toggleEditMode}
-          onSavePeriod={savePeriod}
-          onCancelLogging={cancelLogging}
-        />
+        <div className="lg:col-span-1">
+          <PeriodCalendar
+            periodHistory={periodHistory}
+            selectedDates={selectedDates}
+            isLogging={isLogging}
+            editMode={editMode}
+            predictions={predictions}
+            onDateSelect={handleDateSelect}
+            onStartNewPeriod={startNewPeriod}
+            onContinueCurrentPeriod={continueCurrentPeriod}
+            onToggleEditMode={toggleEditMode}
+            onSavePeriod={savePeriod}
+            onCancelLogging={cancelLogging}
+          />
+        </div>
 
         {/* Statistics Section */}
-        <PeriodStats
-          periodHistory={periodHistory}
-          cycleStats={cycleStats}
-          onDeletePeriod={deletePeriod}
-        />
+        <div className="lg:col-span-1">
+          <PeriodStats
+            periodHistory={periodHistory}
+            cycleStats={cycleStats}
+            onDeletePeriod={deletePeriod}
+          />
+        </div>
       </div>
 
       {/* AI Predictions Section */}

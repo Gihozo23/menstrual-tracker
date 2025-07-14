@@ -3,8 +3,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { CalendarDays, Info, Heart, Baby } from "lucide-react"
-import { format, isFuture, startOfDay, isSameDay, addMonths } from "date-fns"
+import { CalendarDays, Info, Heart, Baby, ChevronLeft, ChevronRight } from "lucide-react"
+import { format, isFuture, startOfDay, isSameDay, addMonths, subMonths } from "date-fns"
+import { useState } from "react"
 import type { PeriodLog, PeriodPredictions } from "@/hooks/use-period-data"
 
 interface PeriodCalendarProps {
@@ -35,7 +36,23 @@ export function PeriodCalendar({
   onCancelLogging,
 }: PeriodCalendarProps) {
   const today = startOfDay(new Date())
-  const nextMonth = addMonths(today, 1)
+  
+  // State for navigation - start with current month
+  const [currentViewMonth, setCurrentViewMonth] = useState(today)
+  const nextViewMonth = addMonths(currentViewMonth, 1)
+
+  // Navigation functions
+  const goToPreviousMonth = () => {
+    setCurrentViewMonth(subMonths(currentViewMonth, 1))
+  }
+
+  const goToNextMonth = () => {
+    setCurrentViewMonth(addMonths(currentViewMonth, 1))
+  }
+
+  const goToCurrentMonth = () => {
+    setCurrentViewMonth(today)
+  }
 
   // Get all logged period dates
   const loggedDates = periodHistory.flatMap(log => log.days)
@@ -127,35 +144,74 @@ export function PeriodCalendar({
       </CardHeader>
       <CardContent>
         {/* Dual Calendar Display */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          {/* Current Month */}
-          <div>
-            <h3 className="text-sm font-medium mb-2 text-center">{format(today, "MMMM yyyy")}</h3>
-            <Calendar
-              mode="single"
-              selected={undefined}
-              onSelect={onDateSelect}
-              disabled={isDateDisabled}
-              modifiers={getModifiers()}
-              modifiersStyles={getModifierStyles()}
-              className="rounded-md border"
-              month={today}
-            />
+        <div className="mb-4">
+          {/* Navigation Controls */}
+          <div className="flex items-center justify-between mb-4">
+            <Button
+              onClick={goToPreviousMonth}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={goToCurrentMonth}
+                variant="ghost"
+                size="sm"
+                className="text-sm font-medium"
+              >
+                Today
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {format(currentViewMonth, "MMMM yyyy")} - {format(nextViewMonth, "MMMM yyyy")}
+              </span>
+            </div>
+            
+            <Button
+              onClick={goToNextMonth}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Next Month */}
-          <div>
-            <h3 className="text-sm font-medium mb-2 text-center">{format(nextMonth, "MMMM yyyy")}</h3>
-            <Calendar
-              mode="single"
-              selected={undefined}
-              onSelect={onDateSelect}
-              disabled={isDateDisabled}
-              modifiers={getModifiers()}
-              modifiersStyles={getModifierStyles()}
-              className="rounded-md border"
-              month={nextMonth}
-            />
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            {/* First Month */}
+            <div className="flex flex-col">
+              <h3 className="text-sm font-medium mb-3 text-center">{format(currentViewMonth, "MMMM yyyy")}</h3>
+              <Calendar
+                mode="single"
+                selected={undefined}
+                onSelect={onDateSelect}
+                disabled={isDateDisabled}
+                modifiers={getModifiers()}
+                modifiersStyles={getModifierStyles()}
+                className="rounded-md border w-full"
+                month={currentViewMonth}
+              />
+            </div>
+
+            {/* Second Month */}
+            <div className="flex flex-col">
+              <h3 className="text-sm font-medium mb-3 text-center">{format(nextViewMonth, "MMMM yyyy")}</h3>
+              <Calendar
+                mode="single"
+                selected={undefined}
+                onSelect={onDateSelect}
+                disabled={isDateDisabled}
+                modifiers={getModifiers()}
+                modifiersStyles={getModifierStyles()}
+                className="rounded-md border w-full"
+                month={nextViewMonth}
+              />
+            </div>
           </div>
         </div>
 
